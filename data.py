@@ -100,7 +100,7 @@ def src_akshare_em(sym):
     if symbols.normalize(sym)["market"] != "US":
         raise NoData("仅美股")
     import akshare as ak
-    start = (dt.date.today() - dt.timedelta(days=420)).strftime("%Y%m%d")
+    start = (dt.date.today() - dt.timedelta(days=1200)).strftime("%Y%m%d")
     end = dt.date.today().strftime("%Y%m%d")
     cn = {"日期": "date", "开盘": "Open", "最高": "High", "最低": "Low", "收盘": "Close", "成交量": "Volume"}
     last = None
@@ -118,7 +118,7 @@ def src_yahoo_chart(sym):
     """直接请求 Yahoo 图表 JSON 接口(比 yfinance 轻, 限流门槛不同)。"""
     import requests
     r = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_code(sym)}",
-                     params={"range": "1y", "interval": "1d", "includePrePost": "false"}, headers=UA, timeout=15)
+                     params={"range": "3y", "interval": "1d", "includePrePost": "false"}, headers=UA, timeout=15)
     if r.status_code == 429:
         raise RateLimited("Yahoo 429")
     r.raise_for_status()
@@ -137,7 +137,7 @@ def src_yfinance(sym):
     """已从默认顺序移除(限流最严重)。保留给手动排查用。"""
     import yfinance as yf
     try:
-        df = yf.Ticker(sym).history(period="1y", interval="1d", auto_adjust=False)
+        df = yf.Ticker(sym).history(period="3y", interval="1d", auto_adjust=False)
     except Exception as ex:
         if "RateLimit" in type(ex).__name__ or "Too Many" in str(ex):
             raise RateLimited(str(ex))

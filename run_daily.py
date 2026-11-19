@@ -7,6 +7,7 @@ sys.path.insert(0, ROOT)
 os.environ.setdefault("SCAN_DATA_DIR", os.path.join(ROOT, "_work"))
 import data as D
 import engine as E
+import horizons as H
 from common import PARAMS
 
 BJ = ZoneInfo("Asia/Shanghai")
@@ -30,6 +31,8 @@ def main():
         out["reason"] = "今天没有取到任何数据（数据源暂时不可用）。这不代表没有信号，明天会自动重试。"
     else:
         res = E.scan(cand, infos, P, reg_frames={"SPY": frames["SPY"]} if "SPY" in frames else None)
+        hz = H.run(frames, P, spy_df=frames.get("SPY"))
+        out["horizons"] = hz
         out.update(asof=max(str(cand[s].index[-1].date()) for s in cand), regime=res["regime"],
                    signals=res["signals"], dropped=res["dropped"],
                    failed=[s for s in uni if s not in frames],
@@ -38,7 +41,7 @@ def main():
                    daily_loss_stop_pct=P["daily_loss_stop_pct"])
     with open(os.path.join(ROOT, "data.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
-    print("done", out["time"], "signals", len(out.get("signals", [])), "got", out["got"])
+    print("done", out["time"], "signals", len(out.get("signals", [])), "got", out["got"], "horizons", {k: (len(v["signals"]), v["bt"]["n"]) for k, v in out.get("horizons", {}).items()})
 
 
 if __name__ == "__main__":
