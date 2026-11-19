@@ -42,6 +42,7 @@ h1{font-size:21px;margin:0}
 .msg{font-size:13px;color:var(--mute)}.ok2{color:var(--dn)}.bad2{color:var(--bad)}
 .how{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:18px;font-size:13.5px;color:var(--mute)}
 .how b{color:var(--ink)}
+.ctl{display:flex;gap:8px;margin:8px 0}.ctl button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px;font-size:14px;font-weight:600;cursor:pointer}.ctl button:disabled{opacity:.5}
 .foot{color:var(--mute);font-size:12px;margin-top:18px;line-height:1.7}
 </style></head>
 <body><div class="w">
@@ -52,6 +53,8 @@ h1{font-size:21px;margin:0}
   <button data-m="short">短线</button>
   <button data-m="long">长线</button>
 </div>
+<div class="ctl"><button id="btnRun">▶ 立即扫描</button><button id="btnRef">↻ 刷新结果</button></div>
+<div class="msg" id="runmsg"></div>
 <div id="top"></div>
 <div id="cards"></div>
 <div class="how"><b>把它放到手机桌面（像 App 一样）</b><br>
@@ -120,11 +123,55 @@ function render(){
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   MODE=b.dataset.m; document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b)); render();
 });
-fetch('data.json?t='+Date.now()).then(r=>r.json()).then(d=>{
-  D=d;
-  $('#sub').textContent=d.time?`数据截至 ${d.asof||'—'} · 更新于 ${d.time}（北京时间）`:'';
-  render();
-}).catch(()=>{ $('#sub').textContent='无法加载数据，请稍后再试。'; });
+const REPO='dn2fjw4zp2-oss/scanner', WF='daily.yml', TOK='scan_gh_token';
+const GH={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+function getTok(){try{return localStorage.getItem(TOK)||''}catch(e){return ''}}
+function say(t,cls){const m=$('#runmsg');m.textContent=t;m.className='msg '+(cls||'');}
+function loadData(){
+  return fetch('data.json?t='+Date.now()).then(r=>r.json()).then(d=>{
+    D=d;
+    $('#sub').textContent=d.time?`数据截至 ${d.asof||'—'} · 更新于 ${d.time}（北京时间）`:'';
+    render();
+  }).catch(()=>{ $('#sub').textContent='无法加载数据，请稍后再试。'; });
+}
+async function runScan(){
+  let t=getTok();
+  if(!t){
+    t=(prompt('第一次使用：粘贴 GitHub 令牌（只保存在这台手机的浏览器里）')||'').trim();
+    if(!t) return;
+    try{localStorage.setItem(TOK,t)}catch(e){}
+  }
+  const btn=$('#btnRun'); btn.disabled=true; say('正在触发扫描…');
+  const t0=Date.now();
+  try{
+    const r=await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${WF}/dispatches`,{method:'POST',
+      headers:Object.assign({Authorization:'Bearer '+t,'Content-Type':'application/json'},GH),body:JSON.stringify({ref:'main'})});
+    if(r.status===204){ say('已触发，约 3–5 分钟后自动刷新结果…','ok2'); pollRun(t0); return; }
+    if(r.status===401||r.status===403){ try{localStorage.removeItem(TOK)}catch(e){} }
+    say(`触发失败（${r.status}）。令牌无效或没有 Actions 写权限，已清除，请重新点「立即扫描」粘贴正确的令牌。`,'bad2');
+  }catch(e){ say('网络错误，稍后再试。','bad2'); }
+  btn.disabled=false;
+}
+async function pollRun(t0){
+  const t=getTok(), btn=$('#btnRun');
+  for(let k=1;k<=30;k++){
+    await new Promise(res=>setTimeout(res,20000));
+    try{
+      const r=await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/${WF}/runs?per_page=1`,{headers:Object.assign({Authorization:'Bearer '+t},GH)});
+      const j=await r.json(); const run=j.workflow_runs&&j.workflow_runs[0];
+      if(run&&Date.parse(run.created_at)>=t0-60000&&run.status==='completed'){
+        if(run.conclusion==='success'){ say('扫描完成，已刷新结果。','ok2'); await loadData(); }
+        else say('扫描失败（'+run.conclusion+'）。到 Actions 页面看日志。','bad2');
+        btn.disabled=false; return;
+      }
+      say(`扫描进行中…（约 ${k*20} 秒）`);
+    }catch(e){}
+  }
+  say('等待超时，请稍后点「刷新结果」。'); btn.disabled=false;
+}
+$('#btnRun').onclick=runScan;
+$('#btnRef').onclick=()=>{ say('正在刷新…'); loadData().then(()=>say('已刷新。')); };
+loadData();
 function chk(inp){
   const card=inp.closest('.card'), m=inp.nextElementSibling;
   const e=parseFloat(card.dataset.e), p=parseFloat(inp.value), side=card.dataset.side;
