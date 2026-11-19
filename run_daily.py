@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
-"""每天在 GitHub 服务器上运行：取数 → 扫描 → 写 docs/data.json（网页读取它）"""
+"""每天在 GitHub 服务器上运行：取数 → 扫描 → 写 data.json（网页读取它）。全部文件在仓库最外层。"""
 import os, sys, json, datetime as dt
 from zoneinfo import ZoneInfo
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 os.environ.setdefault("SCAN_DATA_DIR", os.path.join(ROOT, "_work"))
-from core import data as D, engine as E
-from core.common import PARAMS
+import data as D
+import engine as E
+from common import PARAMS
 
 BJ = ZoneInfo("Asia/Shanghai")
 
 
 def main():
     P = {k: v[0] for k, v in PARAMS.items()}
-    with open(os.path.join(ROOT, "cloud", "universe.txt"), encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "universe.txt"), encoding="utf-8") as f:
         uni = [l.strip().upper() for l in f if l.strip() and not l.startswith("#")]
     fetcher = D.Fetcher(order=["Yahoo图表", "Stooq"], min_gap=2.0, retries=1, backoff=20)
     frames, infos = {}, {}
@@ -35,8 +36,7 @@ def main():
                    capital_cny=P["capital_cny"], usd_cny=P["usd_cny"], leverage=P["leverage"],
                    max_positions=P["max_positions"], max_loss_pct=P["max_loss_pct"],
                    daily_loss_stop_pct=P["daily_loss_stop_pct"])
-    os.makedirs(os.path.join(ROOT, "docs"), exist_ok=True)
-    with open(os.path.join(ROOT, "docs", "data.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "data.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print("done", out["time"], "signals", len(out.get("signals", [])), "got", out["got"])
 

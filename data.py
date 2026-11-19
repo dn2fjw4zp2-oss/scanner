@@ -11,8 +11,8 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from core.common import data_dir
-from core import symbols
+from common import data_dir
+import symbols
 
 COLS = ["Open", "High", "Low", "Close", "Volume"]
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}

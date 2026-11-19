@@ -3,7 +3,7 @@
 只做规则演算, 不保证盈利, 不构成投资建议。"""
 import numpy as np
 import pandas as pd
-from core import symbols
+import symbols
 
 
 def indicators(df, P):
