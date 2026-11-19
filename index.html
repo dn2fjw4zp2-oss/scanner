@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>智能扫描官</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#f3f5f9;--card:#fff;--ink:#16202b;--mute:#6b7785;--line:#e3e8ef;--long:#2563eb;--short:#d97706;--up:#dc2626;--dn:#16a34a;--warn:#b45309;--warnbg:#fff7e6;--bad:#b91c1c;--badbg:#fdecec}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--card:#161b22;--ink:#e6edf3;--mute:#8b96a5;--line:#2a313c;--long:#60a5fa;--short:#fbbf24;--warnbg:#2b2412;--warn:#fbbf24;--badbg:#2d1717;--bad:#f87171}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:env(safe-area-inset-top) 0 40px}
+.w{max-width:620px;margin:0 auto;padding:16px}
+h1{font-size:21px;margin:0}
+.sub{color:var(--mute);font-size:13px;margin:4px 0 14px}
+.box{border-radius:12px;padding:10px 13px;margin:8px 0;font-size:13.5px;border:1px solid var(--line)}
+.box.warn{background:var(--warnbg);color:var(--warn)} .box.bad{background:var(--badbg);color:var(--bad)}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi small{color:var(--mute);display:block;font-size:12px}.kpi b{font-size:18px;font-variant-numeric:tabular-nums}
+.card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.card.long{border-left-color:var(--long)}.card.short{border-left-color:var(--short)}.card.alt{opacity:.75}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sym{font-size:20px;font-weight:700}
+.tag{font-size:12px;border:1px solid var(--line);border-radius:99px;padding:1px 9px;color:var(--mute)}
+.tag.run{background:var(--ink);color:var(--card)}
+.lv{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin:10px 0}
+.lv div{background:var(--bg);border-radius:9px;padding:6px 7px}
+.lv small{display:block;color:var(--mute);font-size:11px}.lv b{font-size:16px;font-variant-numeric:tabular-nums}
+.stop{color:var(--dn)}.tp{color:var(--up)}
+.meta{color:var(--mute);font-size:12.5px}
+.bt{font-size:12.5px;margin:8px 0;color:var(--mute)}
+.why{font-size:12.5px;color:var(--mute)}
+.ck{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.ck input{width:130px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font-size:15px}
+.msg{font-size:13px;color:var(--mute)}.ok{color:var(--dn)}.bad2{color:var(--bad)}
+.how{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:18px;font-size:13.5px;color:var(--mute)}
+.how b{color:var(--ink)}
+.foot{color:var(--mute);font-size:12px;margin-top:18px;line-height:1.7}
+</style></head>
+<body><div class="w">
+<h1>智能扫描官</h1>
+<div class="sub" id="sub">加载中…</div>
+<div id="top"></div>
+<div id="cards"></div>
+<div class="how"><b>把它放到手机桌面（像 App 一样）</b><br>
+iPhone：用 Safari 打开本页 → 底部「分享」按钮 → 「添加到主屏幕」。<br>
+安卓：用 Chrome 打开本页 → 右上角菜单 ⋮ → 「添加到主屏幕」或「安装应用」。</div>
+<div class="foot">仅为规则演算，不保证盈利，不构成投资建议。信号每个美股交易日自动更新一次。下单前请在合约或券商 App 里核对现价，偏差超过 2% 就放弃这张单。杠杆和高波动标的可能造成大额亏损，只用你能承受全部损失的钱。</div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r_t=side=>side==='做多'?'进场（涨到≥）':'进场（跌到≤）';
+const f2=v=>v==null||isNaN(v)?'—':Number(v).toFixed(2);
+fetch('data.json?t='+Date.now()).then(r=>r.json()).then(d=>{
+  if(!d.ok){ $('#sub').textContent=d.time?('更新于 '+d.time):''; $('#top').innerHTML=`<div class="box bad">${esc(d.reason)}</div>`; return; }
+  $('#sub').textContent=`数据截至 ${d.asof} · 更新于 ${d.time}（北京时间）`;
+  const reg=d.regime?d.regime.state:'未知';
+  const warn=[];
+  if(d.failed&&d.failed.length) warn.push(`今天没取到数据的标的：${d.failed.join('、')}（没出信号不代表没机会）`);
+  if(d.max_loss_pct>0.1) warn.push(`单笔最大亏损设为 ${(d.max_loss_pct*100).toFixed(0)}%，偏高，建议 5%–10%。`);
+  const run=d.signals.filter(s=>s.role==='执行').length;
+  $('#top').innerHTML=`<div class="kpi"><div><small>大盘</small><b>${esc(reg)}</b></div><div><small>执行 / 全部信号</small><b>${run} / ${d.signals.length}</b></div></div>`+
+    warn.map(w=>`<div class="box warn">${esc(w)}</div>`).join('');
+  if(!d.signals.length){ $('#cards').innerHTML=`<div class="box" style="text-align:center;margin-top:20px">今天没有符合条件的信号。空仓也是一种决定。</div>`; return; }
+  $('#cards').innerHTML=d.signals.map((s,i)=>{
+    const cls=s.side==='做多'?'long':'short', r=s.role==='执行';
+    const b=s.bt||{n:0};
+    const bt=b.n?`历史同规则 ${b.n} 次 · 胜率 ${(b.win*100).toFixed(0)}% · 期望 ${b.avg_r>=0?'+':''}${b.avg_r.toFixed(2)}R`:'历史样本不足';
+    return `<div class="card ${cls} ${r?'':'alt'}" data-e="${s.entry}" data-side="${cls}">
+      <div class="top"><span class="sym">${esc(s.sym)}</span><span class="tag">${s.side}</span><span class="tag ${r?'run':''}">${r?'执行':'备选'}</span><span class="meta" style="margin-left:auto">分数 ${s.score}</span></div>
+      <div class="lv"><div><small>${r_t(s.side)}</small><b>${f2(s.entry)}</b></div><div><small>止损</small><b class="stop">${f2(s.stop)}</b></div><div><small>止盈1</small><b class="tp">${f2(s.tp1)}</b></div><div><small>数量上限</small><b>${s.qty.toFixed(2)}</b></div></div>
+      <div class="meta">止损距离 ${s.stop_pct.toFixed(1)}% · 名义 $${s.notional.toFixed(0)} · 最大亏损 $${s.risk_usd.toFixed(0)}（${s.risk_pct.toFixed(1)}% 本金）</div>
+      <div class="bt">${bt}</div>
+      <div class="why">${esc(s.why)}</div>
+      <div class="ck"><input type="number" step="any" inputmode="decimal" placeholder="输入现价" oninput="chk(this)"><span class="msg">未输入现价</span></div>
+    </div>`;}).join('');
+}).catch(()=>{ $('#sub').textContent='无法加载数据，请稍后再试。'; });
+function chk(inp){
+  const card=inp.closest('.card'), m=inp.nextElementSibling;
+  const e=parseFloat(card.dataset.e), p=parseFloat(inp.value), side=card.dataset.side;
+  if(!isFinite(p)){m.textContent='未输入现价';m.className='msg';return;}
+  const dev=(p-e)/e*100, t='偏差 '+(dev>=0?'+':'')+dev.toFixed(2)+'%';
+  if(Math.abs(dev)>2){m.textContent=t+'，超过 2%，这张单作废';m.className='msg bad2';}
+  else if((side==='short'&&p<=e)||(side==='long'&&p>=e)){m.textContent=t+'，已越过进场价，条件单会立刻成交';m.className='msg';}
+  else{m.textContent=t+'，尚未触发，可以挂单';m.className='msg ok';}
+}
+if('serviceWorker' in navigator){} 
+</script></body></html>
